@@ -1,5 +1,6 @@
 package com.microservices.quizService.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +17,8 @@ import com.microservices.quizService.model.Quiz;
 import com.microservices.quizService.model.Response;
 import com.microservices.quizService.repository.QuizRepo;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 
 @Service
 public class QuizService {
@@ -25,6 +28,7 @@ public class QuizService {
 	@Autowired
 	QuizInterface questionInterface;
 
+	
 	public ResponseEntity<Quiz> createQuiz(String category, int numQ, String title) {
 		
 		List<String> questions=questionInterface.getQuestionForQuiz(category,numQ).getBody();
@@ -35,7 +39,9 @@ public class QuizService {
 		quiz.setQuestionIds(questions);
 		return new ResponseEntity<>(quizRepo.save(quiz),HttpStatus.CREATED);
 	}
-
+	
+	
+//	@CircuitBreaker(name="questionInterface",fallbackMethod = "getQuizFallback")
 	public ResponseEntity<List<QuestionWrapper>> getQuiz(String quizId) {
 
         Optional<Quiz> quizOpt = quizRepo.findById(quizId);
@@ -48,6 +54,13 @@ public class QuizService {
 
         return questionInterface.getQuestions(quiz.getQuestionIds());
     }
+	
+	public ResponseEntity<List<QuestionWrapper>> getQuizFallback(String quizId, Throwable t) {
+		List<QuestionWrapper> dummyQuestion= new ArrayList<>();
+		QuestionWrapper question = new QuestionWrapper("1","dummy Question","option1","option2","option3","option4");
+		dummyQuestion.add(question);
+		return new ResponseEntity<>(dummyQuestion,HttpStatus.CREATED);
+	}
 
 	public ResponseEntity<Integer> submitQuiz(String quizId, List<Response> responses) {
 		Integer score= questionInterface.getScore(responses).getBody();
